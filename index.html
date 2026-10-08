@@ -335,6 +335,20 @@ button:disabled{cursor:not-allowed}
 
 .release-note{margin:18px auto 4px;max-width:920px;padding:10px 14px;border-radius:14px;background:#f8fafc;color:#64748b;font-size:13px;text-align:center;border:1px solid #e2e8f0}
 </style>
+<style id="edu-v46-fullscreen-style">
+/* Full-width game area even in regular mode; other screens unchanged. */
+body:has(#game-screen:not(.hidden)) .container{max-width:min(98vw,1600px)}
+#game-screen:not(.hidden){width:100%;min-height:min(82vh,900px)}
+#game-screen #game-area{width:100%;min-width:0;overflow-x:auto;align-items:stretch!important}
+#game-screen #game-area> *{max-width:100%;margin-left:auto;margin-right:auto}
+/* Fullscreen uses the actual browser fullscreen API where available. */
+#game-screen:fullscreen,#game-screen.edu-immersive{background:#f8fafc!important;box-sizing:border-box;width:100vw!important;height:100dvh!important;max-width:none!important;min-height:0!important;border-radius:0!important;padding:clamp(8px,1.5vw,24px)!important;overflow-y:auto!important;display:flex!important;flex-direction:column!important}
+#game-screen:fullscreen #game-area,#game-screen.edu-immersive #game-area{flex:1 0 auto;min-height:min(60vh,650px)!important;justify-content:center}
+#game-screen:fullscreen #game-area>*,#game-screen.edu-immersive #game-area>*{max-width:min(100%,1400px)}
+#game-screen.edu-immersive{position:fixed!important;inset:0!important;z-index:99999!important}
+body.edu-immersive-active{overflow:hidden!important}
+@media(max-width:700px){#game-screen:fullscreen,#game-screen.edu-immersive{padding:8px!important}#game-screen #game-area{min-height:280px!important}#edu-fullscreen-toggle{font-size:14px;padding:9px}}
+</style>
 </head>
 <body>
 
@@ -489,6 +503,7 @@ button:disabled{cursor:not-allowed}
         <div id="game-screen" class="hidden card-box" style="min-height: 550px; display: flex; flex-direction: column;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px dashed #e5e7eb; padding-bottom: 16px; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
                 <button onclick="showScreen('map-screen')" class="btn btn-indigo">🗺️ Χάρτης</button>
+                <button id="edu-fullscreen-toggle" type="button" class="btn btn-indigo" onclick="eduToggleFullscreen()" aria-pressed="false">⛶ Πλήρης οθόνη</button>
                 <h2 id="game-title" style="font-size: 22px; font-weight: bold; flex-grow: 1; text-align: center;">Τίτλος</h2>
                 <div style="background: #dbeafe; color: #1e40af; padding: 8px 16px; border-radius: 12px; font-weight: bold;">
                     Επίπεδο: <span id="level-indicator">1</span>/100 · <span id="live-stars">⭐⭐⭐</span>
@@ -544,7 +559,7 @@ button:disabled{cursor:not-allowed}
                 const levels = {};
                 Object.keys(game).forEach(level => {
                     const n = Number(level), stars = Number(game[level]);
-                    if (Number.isInteger(n) && n >= 1 && n <= maxLevel && stars >= 0 && stars <= 3) levels[n] = stars;
+                    if (Number.isInteger(n) && n >= 1 && n <= maxLevel && stars >= -1 && stars <= 3) levels[n] = stars;
                 });
                 out[gameId] = levels;
             });
@@ -826,9 +841,16 @@ button:disabled{cursor:not-allowed}
         function exChoices(area,title,question,choices,correctIndex,seed=1){
             const all=choices.map((v,i)=>({v,i}));
             const correct=all.find(o=>Number(o.i)===Number(correctIndex));
-            const distractors=exShuffle(all.filter(o=>Number(o.i)!==Number(correctIndex)),seed);
-            const desiredPos=Math.min(choices.length-1,(Math.max(1,currentLevel)-1)%Math.max(1,choices.length));
-            const opts=[...distractors]; if(correct) opts.splice(desiredPos,0,correct);
+            // Shuffle ALL options, including the correct one; no level-based answer cycle.
+            // A question-specific hash gives reproducible but non-predictable positions.
+            let x=(Math.imul((Number(seed)||1)>>>0, 2654435761) ^ Math.imul(currentLevel,2246822519))>>>0;
+            for(let k=0;k<question.length;k++) x=(Math.imul(x^question.charCodeAt(k),16777619))>>>0;
+            const opts=[...all];
+            for(let k=opts.length-1;k>0;k--){
+                x^=x<<13; x^=x>>>17; x^=x<<5;
+                const j=Math.floor((x>>>0)/4294967296*(k+1));
+                [opts[k],opts[j]]=[opts[j],opts[k]];
+            }
             const optsHtml=opts.map(o=>'<button class="btn btn-indigo ex-choice" data-i="'+o.i+'">'+o.v+'</button>').join('');
             area.innerHTML=`<div class="ng-box" style="max-width:760px;margin:auto"><h3>${title} · Επίπεδο ${currentLevel}</h3><p style="font-size:20px;font-weight:900;background:#eff6ff;padding:16px;border-radius:16px">${question}</p><div style="display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:10px;max-width:620px;margin:16px auto">${optsHtml}</div></div>`;
             area.querySelectorAll('.ex-choice').forEach(btn=>btn.onclick=()=>{
@@ -4233,5 +4255,119 @@ window.updateHeaderUI = function(){ if(typeof _originalUpdateHeaderUI==='functio
 })();
 </script>
 <div class="release-note">EduGames 1.0 · Worlds Edition · 60 δραστηριότητες · λειτουργεί τοπικά στον browser · η πρόοδος αποθηκεύεται στη συσκευή.</div>
+
+<style id="edu-v44-backup-style">
+#edu-backup-tools{position:fixed;bottom:16px;right:16px;z-index:9000;display:flex;gap:8px;flex-wrap:wrap;max-width:min(94vw,440px);padding:9px;border:1px solid #cbd5e1;border-radius:16px;background:#ffffffed;box-shadow:0 8px 30px #0f172a26;backdrop-filter:blur(8px)}
+#edu-backup-tools button{border:0;border-radius:11px;padding:11px 13px;font:700 13px system-ui;cursor:pointer;background:#155e75;color:white}#edu-backup-tools button:last-of-type{background:#365314}#edu-backup-tools button:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}
+@media(max-width:600px){#edu-backup-tools{left:8px;right:8px;bottom:8px;justify-content:center}#edu-backup-tools button{flex:1}}
+</style>
+<div id="edu-backup-tools" role="group" aria-label="Αντίγραφο ασφαλείας προόδου">
+<button type="button" id="edu-export-progress">💾 Εξαγωγή προόδου</button>
+<button type="button" id="edu-import-progress">📂 Εισαγωγή προόδου</button>
+<input id="edu-import-file" type="file" accept=".json,application/json" hidden aria-label="Επιλογή αρχείου προόδου">
+</div>
+<script id="edu-v44-backup-script">
+(function(){
+'use strict';
+const MAX_BYTES=2*1024*1024;
+const fileInput=document.getElementById('edu-import-file');
+function notify(msg){window.alert(msg)}
+function safeFilename(name){return (name||'mathitis').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'_').slice(0,35)||'mathitis'}
+function validProfile(raw){
+ if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error('Μη έγκυρο προφίλ.');
+ if(typeof raw.avatar!=='string'||raw.avatar.length>30||!raw.progress||typeof raw.progress!=='object'||Array.isArray(raw.progress))throw Error('Μη έγκυρα δεδομένα προόδου.');
+ if(Object.keys(raw.progress).length>200)throw Error('Υπερβολικά πολλά παιχνίδια.');
+ for(const [game,levels] of Object.entries(raw.progress)){
+  if(game.length>80||!levels||typeof levels!=='object'||Array.isArray(levels)||Object.keys(levels).length>100)throw Error('Μη έγκυρα επίπεδα.');
+  for(const [level,stars] of Object.entries(levels)){
+   if(!/^(?:[1-9]|[1-9][0-9]|100)$/.test(level)||!Number.isInteger(stars)||stars< -1||stars>3)throw Error('Μη έγκυρο σκορ.');
+  }
+ }
+ return normalizeUser(raw);
+}
+function exportProgress(){
+ if(!appState.currentUser||!appState.users[appState.currentUser])return notify('Επίλεξε πρώτα το προφίλ μαθητή που θέλεις να αποθηκεύσεις.');
+ const name=appState.currentUser;
+ const payload={format:'edugames-student-backup',backupVersion:1,exportedAt:new Date().toISOString(),student:name,profile:appState.users[name]};
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='EduGames_Proodos_'+safeFilename(name)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ notify('Το αντίγραφο του μαθητή «'+name+'» δημιουργήθηκε. Φύλαξε το αρχείο JSON σε ασφαλές σημείο.');
+}
+async function importProgress(file){
+ if(!file)return;
+ if(file.size>MAX_BYTES)throw Error('Το αρχείο είναι πολύ μεγάλο (μέγιστο 2 MB).');
+ let data;try{data=JSON.parse(await file.text())}catch(_){throw Error('Το αρχείο δεν είναι έγκυρο JSON.');}
+ if(!data||data.format!=='edugames-student-backup'||data.backupVersion!==1||typeof data.student!=='string'||!data.student.trim()||data.student.length>100)throw Error('Δεν αναγνωρίζεται ως αντίγραφο προόδου EduGames.');
+ const name=data.student, profile=validProfile(data.profile);
+ const exists=Object.prototype.hasOwnProperty.call(appState.users,name);
+ if(exists&&!confirm('Υπάρχει ήδη μαθητής «'+name+'». Θέλεις να ΑΝΤΙΚΑΤΑΣΤΗΣΕΙΣ την τωρινή του πρόοδο με το αντίγραφο;'))return;
+ if(!exists&&!confirm('Να εισαχθεί ο μαθητής «'+name+'» και η αποθηκευμένη πρόοδός του;'))return;
+ const previous=appState.users[name];const previousCurrent=appState.currentUser;
+ appState.users[name]=profile;appState.currentUser=name;
+ try{localStorage.setItem(APP_STORAGE_KEY,JSON.stringify({version:3,...appState}))}
+ catch(e){if(exists)appState.users[name]=previous;else delete appState.users[name];appState.currentUser=previousCurrent;throw Error('Δεν υπάρχει διαθέσιμος χώρος αποθήκευσης στον browser.');}
+ renderProfilesList();updateHeaderUI();showScreen('menu-screen');notify('Η πρόοδος του μαθητή «'+name+'» εισήχθη επιτυχώς!');
+}
+document.getElementById('edu-export-progress').addEventListener('click',exportProgress);
+document.getElementById('edu-import-progress').addEventListener('click',()=>{fileInput.value='';fileInput.click()});
+fileInput.addEventListener('change',async()=>{try{await importProgress(fileInput.files&&fileInput.files[0])}catch(e){notify('⚠️ '+e.message)}});
+})();
+</script>
+<script id="edu-v46-fullscreen-script">
+(function(){
+ const screen=()=>document.getElementById('game-screen');
+ function update(){const el=screen(), b=document.getElementById('edu-fullscreen-toggle');if(!el||!b)return;const active=document.fullscreenElement===el||el.classList.contains('edu-immersive');b.textContent=active?'⤢ Έξοδος πλήρους οθόνης':'⛶ Πλήρης οθόνη';b.setAttribute('aria-pressed',String(active));}
+ window.eduToggleFullscreen=async function(){const el=screen();if(!el)return;
+  if(document.fullscreenElement===el){try{await document.exitFullscreen()}catch(e){} }
+  else if(el.classList.contains('edu-immersive')){el.classList.remove('edu-immersive');document.body.classList.remove('edu-immersive-active')}
+  else{try{if(!el.requestFullscreen)throw Error('unsupported');await el.requestFullscreen()}catch(e){el.classList.add('edu-immersive');document.body.classList.add('edu-immersive-active')}}
+  update();
+ };
+ document.addEventListener('fullscreenchange',update);
+ const old=window.showScreen;
+ if(typeof old==='function')window.showScreen=function(id){if(id!=='game-screen'){const el=screen();if(el){el.classList.remove('edu-immersive');document.body.classList.remove('edu-immersive-active');if(document.fullscreenElement===el)document.exitFullscreen().catch(()=>{});}}const r=old.apply(this,arguments);update();return r;};
+})();
+</script>
+<style id="edu-v47-modal-fullscreen-style">
+#game-screen:fullscreen #victory-modal,
+#game-screen.edu-immersive #victory-modal{position:fixed!important;inset:0!important;z-index:2147483000!important}
+</style>
+<script id="edu-v47-modal-fullscreen-fix">
+(function(){
+  const modal=()=>document.getElementById('victory-modal');
+  const game=()=>document.getElementById('game-screen');
+  let home=null, after=null;
+  function syncVictoryModal(){
+    const m=modal(),g=game();if(!m||!g)return;
+    const active=document.fullscreenElement===g||g.classList.contains('edu-immersive');
+    if(active&&m.parentElement!==g){
+      if(!home){home=m.parentNode;after=m.nextSibling;}
+      g.appendChild(m);
+    }else if(!active&&home&&m.parentElement===g){
+      if(after&&after.parentNode===home)home.insertBefore(m,after);
+      else home.appendChild(m);
+    }
+  }
+  document.addEventListener('fullscreenchange',syncVictoryModal);
+  const originalToggle=window.eduToggleFullscreen;
+  if(typeof originalToggle==='function')window.eduToggleFullscreen=async function(){
+    await originalToggle.apply(this,arguments);syncVictoryModal();
+  };
+  const originalWin=window.winLevel;
+  if(typeof originalWin==='function')window.winLevel=function(){
+    syncVictoryModal();return originalWin.apply(this,arguments);
+  };
+  const originalZero=window.completeLevelZeroStars;
+  if(typeof originalZero==='function')window.completeLevelZeroStars=function(){
+    syncVictoryModal();return originalZero.apply(this,arguments);
+  };
+  const originalShow=window.showScreen;
+  if(typeof originalShow==='function')window.showScreen=function(){
+    const result=originalShow.apply(this,arguments);
+    syncVictoryModal();return result;
+  };
+  syncVictoryModal();
+})();
+</script>
 </body>
 </html>
