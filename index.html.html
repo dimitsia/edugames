@@ -362,8 +362,13 @@ button:disabled{cursor:not-allowed}
             
             <div style="width: 100%; max-width: 420px; background: #ecfdf5; border: 2px solid #a7f3d0; border-radius: 16px; padding: 16px; margin-bottom: 32px;">
                 <label style="display: block; font-weight: bold; margin-bottom: 8px;">Δημιουργία Νέου Προφίλ:</label>
-                <input type="text" id="new-user-name" placeholder="Όνομα Μαθητή (π.χ. Μαρία Α1)" style="width: 100%; padding: 12px; border: 2px solid #cbd5e1; border-radius: 12px; font-weight: bold; font-size: 16px; margin-bottom: 16px; outline: none;" maxlength="20">
+                <input type="text" id="new-user-name" placeholder="Όνομα μαθητή (π.χ. Μαρία)" style="width: 100%; padding: 12px; border: 2px solid #cbd5e1; border-radius: 12px; font-weight: bold; font-size: 16px; margin-bottom: 16px; outline: none;" maxlength="20">
                 
+                <label for="new-user-class" style="display:block;font-weight:bold;margin-bottom:8px;">Τάξη / Τμήμα:</label>
+                <select id="new-user-class" style="width:100%;padding:12px;border:2px solid #cbd5e1;border-radius:12px;font-size:16px;font-weight:bold;margin-bottom:16px;">
+                  <option value="">Επίλεξε τμήμα</option>
+                  <option>Α1</option><option>Α2</option><option>Β1</option><option>Β2</option><option>Γ1</option><option>Γ2</option><option>Γ3</option><option>Δ1</option><option>Δ2</option><option>Ε1</option><option>Ε2</option><option>ΣΤ1</option><option>ΣΤ2</option>
+                </select>
                 <label style="display: block; font-weight: bold; margin-bottom: 8px;">Διάλεξε Φατσούλα:</label>
                 <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 16px;" id="avatar-picker">
                     <button class="emoji-select-btn selected" onclick="selectAvatar('🦊', this)">🦊</button>
@@ -383,7 +388,13 @@ button:disabled{cursor:not-allowed}
                 <button onclick="createNewProfile()" class="btn btn-emerald">➕ Προσθήκη & Έναρξη</button>
             </div>
 
+            <div style="width:100%;max-width:650px;background:#eef2ff;border:2px solid #c7d2fe;border-radius:16px;padding:14px;margin-bottom:22px;text-align:center;">
+              <h2 style="font-size:19px;margin-bottom:8px;">📊 Εξαγωγή προόδου στο Excel</h2>
+              <p style="font-size:13px;margin-bottom:10px;">Κατεβάζει όλους τους μαθητές, τις τάξεις και την πρόοδο ανά παιχνίδι.</p>
+              <button class="btn btn-indigo" onclick="exportStudentsExcel()">📥 Εξαγωγή Excel (CSV)</button>
+            </div>
             <h2 style="font-size: 22px; font-weight: bold; margin-bottom: 16px;">Επιλογή Υπάρχοντος Μαθητή:</h2>
+            <div style="width:100%;max-width:420px;margin-bottom:16px;"><label for="profiles-class-filter" style="font-weight:bold;">Φίλτρο τμήματος:</label><select id="profiles-class-filter" onchange="renderProfilesList()" style="width:100%;padding:9px;border:2px solid #cbd5e1;border-radius:10px;margin-top:6px;"><option value="">Όλα τα τμήματα</option><option>Α1</option><option>Α2</option><option>Β1</option><option>Β2</option><option>Γ1</option><option>Γ2</option><option>Γ3</option><option>Δ1</option><option>Δ2</option><option>Ε1</option><option>Ε2</option><option>ΣΤ1</option><option>ΣΤ2</option><option value="Χωρίς τμήμα">Χωρίς τμήμα (παλιοί μαθητές)</option></select></div>
             <div id="profiles-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; width: 100%;">
                 <!-- Profile Cards -->
             </div>
@@ -499,7 +510,6 @@ button:disabled{cursor:not-allowed}
 
             <div style="margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px;">
                 <div id="message" style="font-size: 22px; font-weight: bold; height: 32px;"></div>
-                <button onclick="restartCurrentLevel()" class="btn btn-amber">🔄 Επανέναρξη Επιπέδου</button>
             </div>
         </div>
 
@@ -553,7 +563,7 @@ button:disabled{cursor:not-allowed}
 
         function normalizeUser(user) {
             const safe = (user && typeof user === 'object' && !Array.isArray(user)) ? user : {};
-            return { avatar: typeof safe.avatar === 'string' && safe.avatar ? safe.avatar : '🦊', progress: normalizeProgress(safe.progress) };
+            return { avatar: typeof safe.avatar === 'string' && safe.avatar ? safe.avatar : '🦊', className: typeof safe.className === 'string' ? safe.className : '', displayName: typeof safe.displayName === 'string' ? safe.displayName : '', progress: normalizeProgress(safe.progress) };
         }
 
         function loadAppData() {
@@ -672,15 +682,38 @@ button:disabled{cursor:not-allowed}
         function createNewProfile() {
             const input = document.getElementById('new-user-name');
             const name = input.value.trim();
-            if (!name) return;
-
-            if (!appState.users[name]) {
-                appState.users[name] = { avatar: selectedAvatarEmoji, progress: {} };
-            }
-            appState.currentUser = name;
+            const className = document.getElementById('new-user-class').value;
+            if (!name) { alert('Γράψε το όνομα του μαθητή.'); return; }
+            if (!className) { alert('Επίλεξε τάξη / τμήμα.'); return; }
+            const key = name + ' · ' + className;
+            if (appState.users[key]) { alert('Ο μαθητής υπάρχει ήδη σε αυτό το τμήμα. Επίλεξέ τον από τη λίστα.'); return; }
+            appState.users[key] = { avatar: selectedAvatarEmoji, className, displayName: name, progress: {} };
+            appState.currentUser = key;
             saveAppData();
             input.value = '';
             showScreen('menu-screen');
+        }
+
+        function exportStudentsExcel() {
+            const csvCell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+            const rows = [['Μαθητής','Τμήμα','Παιχνίδι','Ολοκληρωμένα επίπεδα','Αστέρια παιχνιδιού','Συνολικά επίπεδα','Συνολικά αστέρια']];
+            Object.entries(appState.users).sort((a,b) => (a[1].className || '').localeCompare(b[1].className || '', 'el') || a[0].localeCompare(b[0],'el')).forEach(([key,user]) => {
+                const name = user.displayName || key;
+                const cls = user.className || 'Χωρίς τμήμα';
+                const games = Object.entries(user.progress || {});
+                let totalLevels=0, totalStars=0;
+                games.forEach(([,levels]) => Object.values(levels || {}).forEach(stars => { if (Number(stars)>0) totalLevels++; totalStars+=Number(stars)||0; }));
+                if (!games.length) rows.push([name,cls,'—',0,0,totalLevels,totalStars]);
+                else games.forEach(([game,levels]) => {
+                    const values=Object.values(levels || {});
+                    rows.push([name,cls,game,values.filter(v=>Number(v)>0).length,values.reduce((sum,v)=>sum+(Number(v)||0),0),totalLevels,totalStars]);
+                });
+            });
+            const csv='\uFEFFsep=;\r\n'+rows.map(row=>row.map(csvCell).join(';')).join('\r\n');
+            const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement('a');a.href=url;a.download='EduGames_Mathites_Proodos_'+new Date().toISOString().slice(0,10)+'.csv';
+            document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
         }
 
         function selectUser(name) {
@@ -704,7 +737,9 @@ button:disabled{cursor:not-allowed}
             const listContainer = document.getElementById('profiles-list');
             listContainer.innerHTML = '';
 
-            const userNames = Object.keys(appState.users);
+            const filter = document.getElementById('profiles-class-filter')?.value || '';
+            const userNames = Object.keys(appState.users).filter(name => !filter || (appState.users[name].className || 'Χωρίς τμήμα') === filter)
+                .sort((a,b) => (appState.users[a].className || '').localeCompare(appState.users[b].className || '', 'el') || a.localeCompare(b,'el'));
             if (userNames.length === 0) {
                 listContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #9ca3af; font-weight: bold; padding: 16px;">Δεν υπάρχει κανένας καταχωρημένος μαθητής. Δημιουργήστε έναν παραπάνω!</div>`;
                 return;
@@ -726,7 +761,7 @@ button:disabled{cursor:not-allowed}
                 info.style.cssText = 'display:flex;align-items:center;gap:12px;';
                 const avatar = document.createElement('div'); avatar.className = 'avatar-circle'; avatar.textContent = user.avatar || '🦊';
                 const textWrap = document.createElement('div');
-                const nameEl = document.createElement('div'); nameEl.style.cssText='font-weight:bold;font-size:16px;'; nameEl.textContent=name;
+                const nameEl = document.createElement('div'); nameEl.style.cssText='font-weight:bold;font-size:16px;'; nameEl.textContent=(user.displayName || name) + (user.className ? ' · ' + user.className : '');
                 const starsEl = document.createElement('div'); starsEl.style.cssText='font-size:12px;font-weight:bold;color:#d97706;'; starsEl.textContent=`⭐ ${totalStars} Αστέρια`;
                 textWrap.append(nameEl, starsEl); info.append(avatar, textWrap);
                 const del = document.createElement('button'); del.type='button'; del.textContent='🗑️'; del.title='Διαγραφή μαθητή';
@@ -740,7 +775,7 @@ button:disabled{cursor:not-allowed}
         function updateHeaderUI() {
             if (appState.currentUser && appState.users[appState.currentUser]) {
                 const user = appState.users[appState.currentUser];
-                document.getElementById('header-username').innerText = appState.currentUser;
+                document.getElementById('header-username').innerText = (user.displayName || appState.currentUser) + (user.className ? ' · ' + user.className : '');
                 document.getElementById('header-avatar').innerText = user.avatar || '🦊';
 
                 let totalStars = 0;
@@ -1200,7 +1235,18 @@ function loadNumCode(area){
  for(let i=0;i<base.length&&wrong.size<3;i++) add(base.slice(0,i)+base[i]+base.slice(i));
  for(let i=0;i<base.length-1&&wrong.size<3;i++) if(base[i]!==base[i+1])add(base.slice(0,i)+base[i+1]+base[i]+base.slice(i+2));
  let fallback=1;while(wrong.size<3&&fallback<=3){add(base+'ς'.repeat(fallback));fallback++}
- const opts=ngShuffle([w,...[...wrong].slice(0,3)],currentLevel*23+4), diff=currentLevel<=25?'Κοίτα τα βασικά γράμματα.':currentLevel<=50?'Πρόσεξε ι/η και ο/ω.':currentLevel<=75?'Πρόσεξε αι/ει/ου.':'Πρόσεξε όλη τη μορφή της λέξης.';
+ // Every option carries a tonos, so the accent cannot reveal the answer.
+ const tonosMap={'α':'ά','ε':'έ','η':'ή','ι':'ί','ο':'ό','υ':'ύ','ω':'ώ'};
+ const stressedIndex=[...w].findIndex(ch=>'άέήίόύώ'.includes(ch));
+ const withTonos=(v)=>{
+   const chars=[...v];
+   const candidates=chars.map((ch,i)=>tonosMap[ch]!==undefined?i:-1).filter(i=>i>=0);
+   if(!candidates.length)return v;
+   const at=candidates.reduce((best,i)=>Math.abs(i-stressedIndex)<Math.abs(best-stressedIndex)?i:best,candidates[0]);
+   chars[at]=tonosMap[chars[at]];
+   return chars.join('');
+ };
+ const opts=ngShuffle([w,...[...wrong].slice(0,3).map(withTonos)],currentLevel*23+4), diff=currentLevel<=25?'Κοίτα τα βασικά γράμματα.':currentLevel<=50?'Πρόσεξε ι/η και ο/ω.':currentLevel<=75?'Πρόσεξε αι/ει/ου.':'Πρόσεξε όλη τη μορφή της λέξης.';
  area.innerHTML=ngBox(`🕵️ Ορθογραφικός Ντετέκτιβ <span style="color:#2563eb">(${currentLevel}/100)</span>`,`<p style="font-size:20px;font-weight:900">Βρες <b>τη μία λέξη</b> που είναι γραμμένη σωστά.</p><p style="color:#475569">${diff}</p><div style="display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:12px;max-width:700px;margin:auto">${opts.map((o,i)=>`<button class="btn btn-indigo spelling-opt" data-i="${i}" style="font-size:20px">${o}</button>`).join('')}</div>`);
  area.querySelectorAll('.spelling-opt').forEach(b=>b.onclick=()=>{area.querySelectorAll('.spelling-opt').forEach(x=>x.disabled=true);if(opts[+b.dataset.i]===w){b.classList.add('btn-emerald');winLevel(currentLevel>75?2:3);}else{b.classList.add('btn-red');registerMistake();gameTimeout(()=>loadSpelling(area),650);}});
 }
@@ -1215,10 +1261,43 @@ function loadNumCode(area){
  area.querySelectorAll('.train-opt').forEach(btn=>btn.onclick=()=>{area.querySelectorAll('.train-opt').forEach(x=>x.disabled=true);if(+btn.dataset.v===ans){btn.classList.add('btn-emerald');gameTimeout(()=>winLevel(3),300);}else{btn.classList.add('btn-red');registerMistake();gameTimeout(()=>loadMathTrain(area),700);}});
 }
         function loadInvaders(area){
- const words=[...new Set('θάλασσα σχολείο ποδήλατο περιβάλλον οικογένεια παράθυρο ευτυχία βιβλιοθήκη παιχνίδι λουλούδι άνθρωπος γλώσσα επιστήμη καλοκαίρι φθινόπωρο πληκτρολόγιο διαδίκτυο ασφάλεια γεωγραφία μαθηματικά ουρανός καρέκλα τετράδιο μπανάνα ποδόσφαιρο αστροναύτης ηφαίστειο πυξίδα μουσική δημιουργία χειμώνας άνοιξη άνεμος σύννεφο κεραυνός φεγγάρι πλανήτης πύραυλος υπολογιστής κωδικός ανακύκλωση περιπέτεια εξερευνητής ποτάμι βουνό νησί παραλία δελφίνι χελώνα ελέφαντας καμηλοπάρδαλη πιγκουίνος μέλισσα πεταλούδα πορτοκάλι καρπούζι φράουλα σοκολάτα λεμόνι ποτήρι κουτάλι σακίδιο τρένο αεροπλάνο λεωφορείο φανάρι γέφυρα μουσείο κάστρο πυξίδα χάρτης ρολόι ημερολόγιο αστραπή ήλιος αστροναύτης πυροσβέστης αστυνομία φούρνος φάρμα δάσος ζούγκλα έρημος ωκεανός ηφαίστειο σεισμός ενέργεια φύση αθλητισμός ζωγραφική θέατρο χορευτής κιθάρα πιάνο ποδοσφαιριστής ερευνητής εφευρέτης προγραμματιστής φωτογραφία τεχνολογία συνεργασία δημοκρατία ιστορία αρχαιολογία διάστημα'.split(' '))];
- const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(); const target=norm(words[(currentLevel-1)%words.length]); let pos=0,lives=currentLevel<=25?4:currentLevel<=50?3:2,livesMax=lives; let seed=currentLevel*91;
- const render=()=>{const letters='ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ';const shown=target[pos]||'✓';const inv=Array.from({length:Math.min(10,6+Math.floor(currentLevel/20))},(_,i)=>letters[(seed+i*7)%letters.length]);area.innerHTML=ngBox(`👾 Γραμματοεισβολείς <span style="color:#2563eb">(${currentLevel}/100)</span>`,`<p style="font-size:19px;font-weight:900">Οι εισβολείς έρχονται! Πληκτρολόγησε τη λέξη <b>γράμμα-γράμμα και με τη σωστή σειρά</b>.</p><div style="font-size:30px;font-weight:900;background:#0f172a;color:#fff;padding:14px;border-radius:16px;letter-spacing:7px">${target.slice(0,pos)} <span style="color:#facc15">${shown}</span> ${target.slice(pos+1).split('').map(()=>'_').join(' ')}</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;background:linear-gradient(#111827,#312e81);padding:18px;border-radius:20px;min-height:160px">${inv.map((ch,i)=>`<div style="font-size:26px;color:#fff">👾 ${ch}</div>`).join('')}</div><p style="font-weight:900">❤️ ${'❤️'.repeat(lives)}${'🖤'.repeat(Math.max(0,livesMax-lives))}</p><p id="inv-msg" style="font-weight:900;min-height:24px"></p>`);};
- render(); document.onkeydown=e=>{if(!area.offsetParent)return;const key=(e.key||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();if(!/^[Α-Ω]$/.test(key))return;e.preventDefault();if(key===target[pos]){pos++;if(pos===target.length)winLevel(currentLevel>75?2:3);else render();}else{lives--;registerMistake();if(lives<=0){showMessage(`Η λέξη ήταν ${target}.`,'#dc2626');gameTimeout(()=>completeLevelZeroStars(),650);}else{area.querySelector('#inv-msg').textContent='❌ Λάθος γράμμα! Δοκίμασε ξανά το ίδιο γράμμα.';}}};
+ // 100 αυτοτελείς αποστολές: συμπλήρωσε το γράμμα που λείπει από μια πραγματική ελληνική λέξη.
+ const entries=[
+ ['θάλασσα','🌊'],['σχολείο','🏫'],['ποδήλατο','🚲'],['περιβάλλον','🌳'],['οικογένεια','👨‍👩‍👧'],['παράθυρο','🪟'],['ευτυχία','😊'],['βιβλιοθήκη','📚'],['παιχνίδι','🎲'],['λουλούδι','🌼'],
+ ['άνθρωπος','🧑'],['γλώσσα','🗣️'],['επιστήμη','🔬'],['καλοκαίρι','☀️'],['φθινόπωρο','🍂'],['πληκτρολόγιο','⌨️'],['διαδίκτυο','🌐'],['ασφάλεια','🛡️'],['γεωγραφία','🌍'],['μαθηματικά','➕'],
+ ['ουρανός','🌤️'],['καρέκλα','🪑'],['τετράδιο','📓'],['μπανάνα','🍌'],['ποδόσφαιρο','⚽'],['αστροναύτης','👩‍🚀'],['ηφαίστειο','🌋'],['πυξίδα','🧭'],['μουσική','🎵'],['δημιουργία','🎨'],
+ ['χειμώνας','❄️'],['άνοιξη','🌷'],['άνεμος','💨'],['σύννεφο','☁️'],['κεραυνός','⚡'],['φεγγάρι','🌙'],['πλανήτης','🪐'],['πύραυλος','🚀'],['υπολογιστής','💻'],['κωδικός','🔑'],
+ ['ανακύκλωση','♻️'],['περιπέτεια','🗺️'],['εξερευνητής','🔎'],['ποτάμι','🏞️'],['βουνό','⛰️'],['νησί','🏝️'],['παραλία','🏖️'],['δελφίνι','🐬'],['χελώνα','🐢'],['ελέφαντας','🐘'],
+ ['καμηλοπάρδαλη','🦒'],['πιγκουίνος','🐧'],['μέλισσα','🐝'],['πεταλούδα','🦋'],['πορτοκάλι','🍊'],['καρπούζι','🍉'],['φράουλα','🍓'],['σοκολάτα','🍫'],['λεμόνι','🍋'],['ποτήρι','🥛'],
+ ['κουτάλι','🥄'],['σακίδιο','🎒'],['τρένο','🚂'],['αεροπλάνο','✈️'],['λεωφορείο','🚌'],['φανάρι','🚦'],['γέφυρα','🌉'],['μουσείο','🏛️'],['κάστρο','🏰'],['χάρτης','🗺️'],
+ ['ρολόι','🕒'],['ημερολόγιο','📅'],['αστραπή','⚡'],['ήλιος','🌞'],['πυροσβέστης','🚒'],['αστυνομία','🚓'],['φούρνος','🥖'],['φάρμα','🐄'],['δάσος','🌲'],['ζούγκλα','🐒'],
+ ['έρημος','🏜️'],['ωκεανός','🌊'],['σεισμός','🌍'],['ενέργεια','🔋'],['φύση','🍃'],['αθλητισμός','🏅'],['ζωγραφική','🖌️'],['θέατρο','🎭'],['χορευτής','💃'],['κιθάρα','🎸'],
+ ['πιάνο','🎹'],['ερευνητής','🧪'],['εφευρέτης','💡'],['προγραμματιστής','👨‍💻'],['φωτογραφία','📷'],['τεχνολογία','🤖'],['συνεργασία','🤝'],['δημοκρατία','🗳️'],['ιστορία','📜'],['διάστημα','🌌']
+ ];
+ const L=currentLevel, [word,emoji]=entries[L-1];
+ const normalized=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+ const letters=Array.from(normalized(word));
+ // Κάθε επίπεδο έχει μία σταθερή κενή θέση, χωρίς τυχαίες αλλαγές μετά από λάθος.
+ const missing=1+((L*7+3)%(letters.length-2));
+ const correct=letters[missing];
+ const alphabet='ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ';
+ const alternatives=[correct];let step=1;
+ while(alternatives.length<4){const ch=alphabet[(alphabet.indexOf(correct)+step*5+L)%alphabet.length];if(!alternatives.includes(ch))alternatives.push(ch);step++;}
+ const options=exShuffle(alternatives,L*31+9);
+ let answered=false;
+ area.innerHTML=ngBox(`👾 Γραμματοεισβολείς <span style="color:#2563eb">(${L}/100)</span>`,
+ `<p style="font-size:19px;font-weight:900">Οι εισβολείς έκλεψαν ένα γράμμα! Βρες ποιο λείπει για να ολοκληρώσεις τη λέξη.</p>
+ <div style="font-size:54px;margin:14px">${emoji}</div>
+ <div style="font-size:clamp(22px,4vw,36px);font-weight:900;background:#0f172a;color:white;padding:18px 8px;border-radius:18px;letter-spacing:3px;overflow-wrap:anywhere">${letters.map((c,i)=>i===missing?'<span style="color:#facc15;text-decoration:underline">_</span>':c).join('')}</div>
+ <p style="margin:15px 0 8px;font-weight:800;color:#475569">Πάτησε το γράμμα που λείπει:</p>
+ <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;max-width:520px;margin:12px auto">${options.map((c,i)=>`<button class="btn btn-indigo inv-letter" data-index="${i}" style="font-size:28px;min-height:66px">👾 ${c}</button>`).join('')}</div>
+ <p id="inv-msg" aria-live="polite" style="font-size:17px;font-weight:900;min-height:32px"></p>`);
+ area.querySelectorAll('.inv-letter').forEach(btn=>btn.onclick=()=>{
+   if(answered)return;
+   const chosen=options[+btn.dataset.index];
+   if(chosen===correct){answered=true;btn.style.background='#16a34a';area.querySelector('#inv-msg').textContent=`✅ Σωστά! Η λέξη είναι «${word}».`;area.querySelectorAll('.inv-letter').forEach(x=>x.disabled=true);gameTimeout(()=>winLevel(3),650);}
+   else{registerMistake();btn.disabled=true;btn.style.background='#dc2626';area.querySelector('#inv-msg').textContent='❌ Δεν είναι αυτό το γράμμα. Σκέψου και δοκίμασε άλλη επιλογή.';}
+ });
 }
         function loadMillionaire(area){
  const extra=[];
@@ -1364,26 +1443,26 @@ function loadNumCode(area){
         function loadDigiDetective(area){
  const L=currentLevel,r=v18Rng(59000+L);
  const topics=[
- ['📧','Ύποπτο μήνυμα','Μήνυμα υπόσχεται δωρεάν δώρο και ζητά να πατήσεις άγνωστο σύνδεσμο.','Δεν πατάω τον σύνδεσμο και το δείχνω σε έμπιστο ενήλικα.',['Πατάω για να δω τι θα γίνει.','Το προωθώ σε φίλους.']],
- ['🔐','Κωδικός','Ένας φίλος ζητά τον κωδικό του λογαριασμού σου για να σε βοηθήσει σε παιχνίδι.','Δεν μοιράζομαι τον κωδικό μου.',['Τον στέλνω μόνο για λίγο.','Τον γράφω σε δημόσιο chat.']],
- ['👤','Άγνωστος','Άγνωστος παίκτης ζητά το σχολείο και τη διεύθυνσή σου.','Δεν δίνω προσωπικά στοιχεία και ενημερώνω έμπιστο ενήλικα.',['Τα δίνω για να γίνουμε φίλοι.','Δίνω μόνο τη διεύθυνση.']],
- ['📸','Φωτογραφία','Θέλεις να ανεβάσεις φωτογραφία συμμαθητή σου.','Ζητάω πρώτα τη συγκατάθεσή του και ακολουθώ τους κανόνες σχολείου/οικογένειας.',['Την ανεβάζω χωρίς να ρωτήσω.','Βάζω και την τοποθεσία του.']],
- ['📰','Είδηση','Μια άγνωστη σελίδα γράφει μια εντυπωσιακή είδηση χωρίς πηγή.','Ελέγχω αξιόπιστες ή επίσημες πηγές πριν τη μοιραστώ.',['Τη μοιράζομαι αμέσως.','Την πιστεύω επειδή έχει πολλά likes.']],
- ['⬇️','Λήψη αρχείου','Ένα αναδυόμενο παράθυρο ζητά να κατεβάσεις άγνωστο αρχείο.','Δεν το ανοίγω και ζητάω βοήθεια από έμπιστο ενήλικα.',['Το κατεβάζω αμέσως.','Κλείνω την προστασία του υπολογιστή.']],
- ['💬','Κοροϊδία','Κάποιος σε κοροϊδεύει επανειλημμένα σε ομαδική συνομιλία.','Κρατάω στοιχεία, χρησιμοποιώ μπλοκ/αναφορά και μιλάω σε έμπιστο ενήλικα.',['Απαντάω με χειρότερες προσβολές.','Δημοσιεύω προσωπικά στοιχεία του.']],
- ['🤖','Εικόνα AI;','Μια εντυπωσιακή εικόνα παρουσιάζεται ως αληθινή αλλά δεν έχει πηγή.','Ψάχνω την αρχική πηγή και άλλες αξιόπιστες πληροφορίες.',['Τη θεωρώ αληθινή επειδή φαίνεται αληθινή.','Τη μοιράζομαι χωρίς έλεγχο.']],
- ['📍','Τοποθεσία','Παιχνίδι ζητά ακριβή τοποθεσία χωρίς να φαίνεται ότι τη χρειάζεται.','Δεν δίνω άδεια χωρίς λόγο και ρωτάω έμπιστο ενήλικα.',['Πατάω πάντα Ναι.','Δημοσιεύω την τοποθεσία μου.']],
- ['🎥','Βιντεοκλήση','Άγνωστος ζητά ιδιωτική βιντεοκλήση και λέει να μην το πεις σε κανέναν.','Δεν συνεχίζω και ενημερώνω έμπιστο ενήλικα.',['Δέχομαι επειδή το ζήτησε μυστικά.','Στέλνω πρώτα προσωπική φωτογραφία.']],
- ['🎮','Chat παιχνιδιού','Παίκτης στέλνει σύνδεσμο για «δωρεάν νομίσματα» μέσα στο chat.','Δεν ανοίγω τον άγνωστο σύνδεσμο και χρησιμοποιώ μόνο επίσημες λειτουργίες του παιχνιδιού.',['Τον ανοίγω επειδή είναι μέσα στο παιχνίδι.','Γράφω εκεί τον κωδικό μου.']],
- ['📱','Άδεια εφαρμογής','Εφαρμογή φακού ζητά πρόσβαση στις επαφές σου.','Αρνούμαι άδεια που δεν χρειάζεται για τη λειτουργία της.',['Δίνω όλες τις άδειες.','Στέλνω και τις επαφές μου.']],
- ['👥','Ομαδική συνομιλία','Κάποιος προσθέτει άγνωστο άτομο στην ομάδα της τάξης.','Δεν μοιράζομαι προσωπικά στοιχεία και ενημερώνω υπεύθυνο ενήλικα/εκπαιδευτικό.',['Στέλνω το τηλέφωνό μου για γνωριμία.','Του δίνω στοιχεία συμμαθητών.']],
- ['💻','Κοινόχρηστος υπολογιστής','Τελειώνεις τη χρήση λογαριασμού σε κοινόχρηστο υπολογιστή.','Κάνω αποσύνδεση από τον λογαριασμό μου.',['Αφήνω τον λογαριασμό ανοιχτό.','Αποθηκεύω τον κωδικό στον browser.']],
- ['🔄','Ενημέρωση','Η συσκευή προτείνει επίσημη ενημέρωση λογισμικού.','Ζητάω βοήθεια όπου χρειάζεται και χρησιμοποιώ την επίσημη ενημέρωση.',['Κατεβάζω τυχαία “update” από διαφήμιση.','Απενεργοποιώ για πάντα τις ενημερώσεις.']],
- ['📎','Συνημμένο','Email από άγνωστο αποστολέα έχει περίεργο συνημμένο.','Δεν ανοίγω το συνημμένο και ελέγχω τον αποστολέα.',['Το ανοίγω από περιέργεια.','Το στέλνω σε φίλο να το δοκιμάσει.']],
- ['🎁','Διαγωνισμός','Σελίδα λέει ότι κέρδισες κινητό και ζητά στοιχεία κάρτας για “1€ μεταφορικά”.','Δεν δίνω οικονομικά στοιχεία και το δείχνω σε έμπιστο ενήλικα.',['Δίνω τα στοιχεία για το δώρο.','Στέλνω φωτογραφία κάρτας.']],
- ['🔎','Αναζήτηση','Το πρώτο αποτέλεσμα αναζήτησης κάνει έναν ισχυρισμό.','Ελέγχω περισσότερες αξιόπιστες πηγές και ποιος το δημοσίευσε.',['Πιστεύω πάντα το πρώτο αποτέλεσμα.','Κοιτάζω μόνο τον τίτλο.']],
- ['🧑‍🤝‍🧑','Λογαριασμός φίλου','Λαμβάνεις περίεργο μήνυμα από λογαριασμό φίλου που ζητά χρήματα.','Επικοινωνώ με τον φίλο από άλλο τρόπο πριν κάνω οτιδήποτε.',['Στέλνω χρήματα αμέσως.','Δίνω και τον κωδικό μου.']],
- ['📢','Δημόσια ανάρτηση','Ετοιμάζεσαι να γράψεις δημόσια ότι λείπετε όλοι από το σπίτι για διακοπές.','Δεν δημοσιεύω πληροφορίες που αποκαλύπτουν πότε το σπίτι είναι άδειο.',['Το γράφω μαζί με διεύθυνση.','Βάζω και ζωντανή τοποθεσία.']]
+ ['📧','Ύποπτο μήνυμα','Μήνυμα υπόσχεται δωρεάν δώρο και ζητά να πατήσεις άγνωστο σύνδεσμο.','Αγνοώ τον σύνδεσμο και ενημερώνω ενήλικα.',['Πατάω τον σύνδεσμο για να δω το δώρο.','Το στέλνω σε φίλους για να δοκιμάσουν.']],
+ ['🔐','Κωδικός','Ένας φίλος ζητά τον κωδικό του λογαριασμού σου για να σε βοηθήσει σε παιχνίδι.','Κρατώ τον κωδικό μου μυστικό.',['Δίνω τον κωδικό μόνο για μία ημέρα.','Γράφω τον κωδικό στη συνομιλία του παιχνιδιού.']],
+ ['👤','Άγνωστος','Άγνωστος παίκτης ζητά το σχολείο και τη διεύθυνσή σου.','Δεν δίνω στοιχεία και ενημερώνω ενήλικα.',['Δίνω τα στοιχεία για να γνωριστούμε.','Στέλνω μόνο τη διεύθυνση του σπιτιού μου.']],
+ ['📸','Φωτογραφία','Θέλεις να ανεβάσεις φωτογραφία συμμαθητή σου.','Ζητώ άδεια πριν ανεβάσω τη φωτογραφία.',['Την ανεβάζω χωρίς να ζητήσω άδεια.','Προσθέτω τη φωτογραφία και την τοποθεσία του.']],
+ ['📰','Είδηση','Μια άγνωστη σελίδα γράφει μια εντυπωσιακή είδηση χωρίς πηγή.','Ελέγχω την είδηση πριν τη μοιραστώ.',['Τη μοιράζομαι αμέσως με όλη την τάξη.','Την πιστεύω επειδή συγκέντρωσε πολλά likes.']],
+ ['⬇️','Λήψη αρχείου','Ένα αναδυόμενο παράθυρο ζητά να κατεβάσεις άγνωστο αρχείο.','Δεν το ανοίγω και ζητώ βοήθεια.',['Κατεβάζω το αρχείο για να δω τι περιέχει.','Κλείνω την προστασία για να γίνει η λήψη.']],
+ ['💬','Κοροϊδία','Κάποιος σε κοροϊδεύει επανειλημμένα σε ομαδική συνομιλία.','Κρατώ αποδείξεις και ενημερώνω ενήλικα.',['Απαντώ δημόσια με ακόμη χειρότερες προσβολές.','Ανεβάζω τα προσωπικά στοιχεία του άλλου.']],
+ ['🤖','Εικόνα AI;','Μια εντυπωσιακή εικόνα παρουσιάζεται ως αληθινή αλλά δεν έχει πηγή.','Ελέγχω την πηγή της εικόνας.',['Την πιστεύω επειδή μοιάζει με φωτογραφία.','Τη μοιράζομαι αμέσως χωρίς να την ελέγξω.']],
+ ['📍','Τοποθεσία','Παιχνίδι ζητά ακριβή τοποθεσία χωρίς να φαίνεται ότι τη χρειάζεται.','Αρνούμαι την άδεια και ρωτώ ενήλικα.',['Πατάω «Ναι» σε κάθε αίτημα τοποθεσίας.','Ανεβάζω την ακριβή τοποθεσία μου δημόσια.']],
+ ['🎥','Βιντεοκλήση','Άγνωστος ζητά ιδιωτική βιντεοκλήση και λέει να μην το πεις σε κανέναν.','Αρνούμαι και ενημερώνω ενήλικα.',['Δέχομαι την κλήση και κρατώ το μυστικό.','Στέλνω μια φωτογραφία μου πριν την κλήση.']],
+ ['🎮','Chat παιχνιδιού','Παίκτης στέλνει σύνδεσμο για «δωρεάν νομίσματα» μέσα στο chat.','Αγνοώ τον σύνδεσμο του παίκτη.',['Ανοίγω τον σύνδεσμο επειδή είναι στο παιχνίδι.','Πληκτρολογώ τον κωδικό για τα νομίσματα.']],
+ ['📱','Άδεια εφαρμογής','Εφαρμογή φακού ζητά πρόσβαση στις επαφές σου.','Αρνούμαι την περιττή άδεια.',['Επιτρέπω κάθε πρόσβαση που ζητά η εφαρμογή.','Μοιράζομαι τις επαφές μου με την εφαρμογή.']],
+ ['👥','Ομαδική συνομιλία','Κάποιος προσθέτει άγνωστο άτομο στην ομάδα της τάξης.','Δεν δίνω στοιχεία και ενημερώνω εκπαιδευτικό.',['Στέλνω τον αριθμό μου για να γνωριστούμε.','Δίνω στον άγνωστο στοιχεία των συμμαθητών.']],
+ ['💻','Κοινόχρηστος υπολογιστής','Τελειώνεις τη χρήση λογαριασμού σε κοινόχρηστο υπολογιστή.','Αποσυνδέομαι από τον λογαριασμό μου.',['Αφήνω τον λογαριασμό ανοιχτό για τον επόμενο.','Αποθηκεύω τον κωδικό στον κοινό υπολογιστή.']],
+ ['🔄','Ενημέρωση','Η συσκευή προτείνει επίσημη ενημέρωση λογισμικού.','Χρησιμοποιώ την επίσημη ενημέρωση με βοήθεια.',['Πατάω σε διαφήμιση για να βάλω ενημέρωση.','Κλείνω όλες τις μελλοντικές ενημερώσεις.']],
+ ['📎','Συνημμένο','Email από άγνωστο αποστολέα έχει περίεργο συνημμένο.','Δεν ανοίγω το άγνωστο συνημμένο.',['Ανοίγω το συνημμένο για να δω τι έχει.','Το στέλνω σε φίλο για να το ανοίξει εκείνος.']],
+ ['🎁','Διαγωνισμός','Σελίδα λέει ότι κέρδισες κινητό και ζητά στοιχεία κάρτας για “1€ μεταφορικά”.','Δεν δίνω στοιχεία κάρτας και ενημερώνω ενήλικα.',['Συμπληρώνω τα στοιχεία της κάρτας για το δώρο.','Στέλνω φωτογραφία της κάρτας στη σελίδα.']],
+ ['🔎','Αναζήτηση','Το πρώτο αποτέλεσμα αναζήτησης κάνει έναν ισχυρισμό.','Ελέγχω και άλλες αξιόπιστες πηγές.',['Πιστεύω το πρώτο αποτέλεσμα χωρίς έλεγχο.','Διαβάζω μόνο τον τίτλο του αποτελέσματος.']],
+ ['🧑‍🤝‍🧑','Λογαριασμός φίλου','Λαμβάνεις περίεργο μήνυμα από λογαριασμό φίλου που ζητά χρήματα.','Επιβεβαιώνω το μήνυμα από άλλο μέσο.',['Στέλνω τα χρήματα χωρίς να τηλεφωνήσω.','Στέλνω και τον κωδικό για να τον βοηθήσω.']],
+ ['📢','Δημόσια ανάρτηση','Ετοιμάζεσαι να γράψεις δημόσια ότι λείπετε όλοι από το σπίτι για διακοπές.','Δεν ανακοινώνω δημόσια την απουσία μας.',['Ανακοινώνω τις διακοπές μαζί με τη διεύθυνση.','Δημοσιεύω και τη ζωντανή τοποθεσία μας.']]
  ];
  const base=topics[(L*7+Math.floor((L-1)/20)*3)%topics.length],variant=Math.floor((L-1)/20);
  const frames=[
@@ -1393,7 +1472,7 @@ function loadNumCode(area){
   x=>`Στην ομάδα της τάξης εμφανίζεται η κατάσταση: ${x}`,
   x=>`Αποστολή ντετέκτιβ: ${x}`
  ];
- const scenario=frames[variant](base[2]),correct={v:base[3],ok:true},wrongs=v18Shuffle(base[4].map(v=>({v,ok:false})),r),opts=[...wrongs];opts.splice((L-1)%3,0,correct);
+ const scenario=frames[variant](base[2]),correct={v:base[3],ok:true},wrongs=v18Shuffle(base[4].map(v=>({v,ok:false})),r),opts=[...wrongs];opts.splice(Math.floor(r()*3),0,correct);
  area.innerHTML=`<div class="v18-game"><h2>🕵️ Ψηφιακός Ντετέκτιβ — Υπόθεση ${L}</h2><div class="detect-card"><div class="detect-icon">${base[0]}</div><b>${base[1]}</b><p>${scenario}</p></div><div class="kid-help"><b>🔎 Τι κάνω;</b> Διάλεξε την ασφαλέστερη και πιο υπεύθυνη ενέργεια. Διάβασε και τις τρεις επιλογές.</div><div class="v18-options">${opts.map((o,i)=>`<button data-i="${i}">${o.v}</button>`).join('')}</div><div id="dd-msg" class="v18-msg"></div></div>`;
  area.querySelectorAll('.v18-options button').forEach((b,i)=>b.onclick=()=>{if(opts[i].ok){area.querySelector('#dd-msg').textContent='✅ Η υπόθεση λύθηκε!';winLevel(3)}else{registerMistake();area.querySelector('#dd-msg').textContent='🔎 Αυτή η επιλογή αυξάνει τον κίνδυνο. Σκέψου ποια προστατεύει καλύτερα εσένα και τους άλλους.'}});
 }
@@ -1537,7 +1616,6 @@ function loadNumCode(area){
             else area.innerHTML = ngBox('⚠️ Το παιχνίδι δεν βρέθηκε', '<div>Η συγκεκριμένη δραστηριότητα δεν είναι διαθέσιμη.</div>');
         }
 
-        function restartCurrentLevel() { playSound('restart'); loadGameLevel(true); }
         let levelMistakes = 0;
         let levelFailed = false;
         function registerMistake(amount = 1) {
@@ -3602,31 +3680,60 @@ function loadRecycle(area){
  ['πλαστικό μπουκάλι νερού','πλαστικό'],['πλαστικό μπουκάλι αναψυκτικού','πλαστικό'],['κεσεδάκι γιαουρτιού','πλαστικό'],['πλαστικό δοχείο τροφίμων','πλαστικό'],['πλαστικό καπάκι','πλαστικό'],['πλαστικό μπουκάλι σαμπουάν','πλαστικό'],['πλαστικό μπουκάλι απορρυπαντικού','πλαστικό'],['πλαστικό μπουκάλι υγρού πιάτων','πλαστικό'],['πλαστική συσκευασία μπισκότων','πλαστικό'],['πλαστικό δοχείο σαλάτας','πλαστικό'],['πλαστικό κεσεδάκι τυριού','πλαστικό'],['πλαστικό μπουκάλι χυμού','πλαστικό'],['πλαστικό κουτί τροφίμων','πλαστικό'],['πλαστική σακούλα','πλαστικό'],['πλαστική μεμβράνη συσκευασίας','πλαστικό'],['πλαστικό ποτήρι','πλαστικό'],['πλαστικό κουτάκι','πλαστικό'],['πλαστικό δοχείο παγωτού','πλαστικό'],['πλαστικό μπουκάλι νερού μικρό','πλαστικό'],['πλαστικό μπουκάλι νερού μεγάλο','πλαστικό'],['πλαστικό καπάκι μπουκαλιού','πλαστικό'],['πλαστικό δοχείο αποθήκευσης','πλαστικό'],['πλαστικό κουτί παιχνιδιού','πλαστικό'],['πλαστική συσκευασία σαπουνιού','πλαστικό'],['πλαστικό δοχείο χυμού','πλαστικό'],
  ['φλούδα μπανάνας','οργανικά'],['φλούδα πορτοκαλιού','οργανικά'],['φλούδα μήλου','οργανικά'],['φλούδα πατάτας','οργανικά'],['φλούδα καρότου','οργανικά'],['φλούδα αγγουριού','οργανικά'],['φλούδα λεμονιού','οργανικά'],['φλούδα αχλαδιού','οργανικά'],['φλούδα ροδάκινου','οργανικά'],['φλούδα καρπουζιού','οργανικά'],['φλούδα πεπονιού','οργανικά'],['υπόλοιπα σαλάτας','οργανικά'],['υπόλοιπα λαχανικών','οργανικά'],['υπόλοιπα φρούτων','οργανικά'],['κατακάθι καφέ','οργανικά'],['φύλλα τσαγιού','οργανικά'],['τσόφλι αυγού','οργανικά'],['φλούδα κρεμμυδιού','οργανικά'],['φλούδα σκόρδου','οργανικά'],['κοτσάνι μαρουλιού','οργανικά'],['φλούδα κολοκυθιού','οργανικά'],['φλούδα μελιτζάνας','οργανικά'],['φλούδα ντομάτας','οργανικά'],['ψίχουλα ψωμιού','οργανικά'],['υπόλοιπο ψωμιού','οργανικά']
  ];
- const L=currentLevel,d=items[L-1],bins=['χαρτί','γυαλί','πλαστικό','οργανικά'];const opts=exShuffle(bins,L*17);const hint=L<=25?'Σκέψου από τι υλικό είναι.':L<=50?'Πρόσεξε αν είναι γυαλί, χαρτί ή πλαστικό.':L<=75?'Σκέψου τι γίνεται με τα οργανικά υλικά.':'Διάλεξε τον σωστό κάδο χωρίς να βασιστείς μόνο στο σχήμα.';exChoices(area,'♻️ Ανακύκλωση',`<p style="color:#475569">${hint}</p>Πού πρέπει να πετάξεις: <b>${d[0]}</b>;`,opts,opts.indexOf(d[1]),L*53);
+ const L=currentLevel;
+ // Εναλλαγή κατηγοριών σε κάθε τετράδα επιπέδων: καμία κατηγορία δεν επαναλαμβάνεται διαδοχικά.
+ // Ανακατεύουμε και τα αντικείμενα μέσα σε κάθε κατηγορία, ώστε να μην υπάρχει προβλέψιμο μοτίβο.
+ const round=Math.floor((L-1)/4), slot=(L-1)%4;
+ const categoryOrder=exShuffle([0,1,2,3],round*7919+317);
+ const category=categoryOrder[slot];
+ const itemIndex=(round*7+category*11)%25;
+ const d=items[category*25+itemIndex];
+ const bins=['χαρτί','γυαλί','πλαστικό','οργανικά'];
+ const opts=exShuffle(bins,L*17);
+ exChoices(area,'♻️ Ανακύκλωση',`<p style="color:#475569">Διάβασε το αντικείμενο και σκέψου σε ποια κατηγορία ανήκει.</p>Πού πρέπει να πετάξεις: <b>${d[0]}</b>;`,opts,opts.indexOf(d[1]),L*53);
 }
 function loadReading(area){
-  const L=currentLevel,stage=Math.ceil(L/20);
-  const subjects=['Η Μαρία','Ο Νίκος','Η Άννα','Ο Πέτρος','Η Ελένη','Ο Γιάννης','Η Σοφία','Ο Μάριος','Η Δανάη','Ο Αλέξης'];
-  const places=['στη βιβλιοθήκη','στο πάρκο','στο μουσείο','στον κήπο','στο σχολείο','στην παραλία','στην πλατεία','στο γήπεδο','στο εργαστήριο','στο αγρόκτημα'];
-  const objects=['βιβλία','μολύβια','μήλα','μπάλες','λουλούδια','αυτοκόλλητα','κοχύλια','τετράδια','εισιτήρια','φρούτα'];
-  const subject=subjects[(L*3)%10],place=places[(L*7+stage)%10],obj=objects[(L*9+stage)%10];
-  const n=3+((L*5+stage)%7),m=1+((L*3+stage)%Math.max(2,n-1));
-  let story='',q='',ans='',wrong=[];
-  if(stage===1){
-    story=`${subject} πήγε ${place} και πήρε ${n} ${obj}.`;q=`Πόσα ${obj} πήρε;`;ans=String(n);wrong=[String(n+1),String(n-1),String(n+2)];
-  }else if(stage===2){
-    story=`${subject} είχε ${n+3} ${obj}. Έδωσε ${m} σε έναν φίλο και κράτησε τα υπόλοιπα.`;q='Πόσα έμειναν;';ans=String(n+3-m);wrong=[String(n+3),String(m),String(Math.max(0,n+2-m))];
-  }else if(stage===3){
-    story=`${subject} πήγε πρώτα ${place}. Μετά μάζεψε ${n} ${obj} και στο τέλος τα έβαλε στην τσάντα.`;q='Τι έκανε δεύτερο;';ans=`Μάζεψε ${n} ${obj}`;wrong=[`Πήγε ${place}`,'Τα έβαλε στην τσάντα','Γύρισε σπίτι'];
-  }else if(stage===4){
-    story=`${subject} πήγε ${place}. Εκεί βρήκε ${n} ${obj}, αλλά κράτησε μόνο ${n-m}.`;q='Πόσα άφησε;';ans=String(m);wrong=[String(n),String(n-m),String(m+1)];
-  }else{
-    const gift=Math.min(2,m);
-    story=`${subject} πήγε ${place}. Το πρωί συγκέντρωσε ${n} ${obj} και το μεσημέρι άλλα ${m}. Πριν φύγει, χάρισε ${gift}.`;
-    q='Πόσα είχε τελικά;';ans=String(n+m-gift);wrong=[String(n+m),String(n),String(n+m+1)];
+  const L=currentLevel;
+  if(L<=9){
+    const subjects=['Η Μαρία','Ο Νίκος','Η Άννα','Ο Πέτρος','Η Ελένη','Ο Γιάννης','Η Σοφία','Ο Μάριος','Η Δανάη','Ο Αλέξης'];
+    const places=['στη βιβλιοθήκη','στο πάρκο','στο μουσείο','στον κήπο','στο σχολείο','στην παραλία','στην πλατεία','στο γήπεδο','στο εργαστήριο','στο αγρόκτημα'];
+    const objects=['βιβλία','μολύβια','μήλα','μπάλες','λουλούδια','αυτοκόλλητα','κοχύλια','τετράδια','εισιτήρια','φρούτα'];
+    const subject=subjects[(L*3)%10],place=places[(L*7+1)%10],obj=objects[(L*9+1)%10],n=3+((L*5+1)%7);
+    const ans=String(n),choices=ngShuffle([ans,String(n+1),String(n-1),String(n+2)],L*61);
+    exChoices(area,'📚 Διάβασε & Απάντησε',`<div style="text-align:left;background:#fff7ed;padding:16px;border-radius:16px;line-height:1.65;margin-bottom:12px">${subject} πήγε ${place} και πήρε ${n} ${obj}.</div><b>Πόσα ${obj} πήρε;</b>`,choices,choices.indexOf(ans),L*61);
+    return;
   }
-  const choices=ngShuffle([...new Set([ans,...wrong])],L*61+stage);
-  exChoices(area,'📚 Διάβασε & Απάντησε',`<div style="text-align:left;background:#fff7ed;padding:16px;border-radius:16px;line-height:1.65;margin-bottom:12px">${story}</div><b>${q}</b>`,choices,choices.indexOf(ans),L*61);
+  // From level 10: genuine reading comprehension, not arithmetic word problems.
+  // Each entry: short coherent story, followed by four different comprehension questions.
+  const texts=[
+    ['Η Άννα πήγε στη βιβλιοθήκη για να βρει ένα βιβλίο για τους πλανήτες. Η βιβλιοθηκονόμος της έδειξε το ράφι της επιστήμης. Η Άννα δανείστηκε ένα βιβλίο και υποσχέθηκε να το επιστρέψει την Παρασκευή.',[
+      ['Γιατί πήγε η Άννα στη βιβλιοθήκη;','Για να βρει βιβλίο για πλανήτες','Για να αγοράσει έναν χάρτη','Για να συναντήσει τον γιατρό','Για να παίξει ποδόσφαιρο'],['Ποιος τη βοήθησε;','Η βιβλιοθηκονόμος','Η δασκάλα της','Η γειτόνισσά της','Η προπονήτριά της'],['Πού βρισκόταν το βιβλίο;','Στο ράφι της επιστήμης','Στο γραφείο της εισόδου','Στην αίθουσα μουσικής','Στην αυλή του σχολείου'],['Πότε θα επέστρεφε το βιβλίο;','Την Παρασκευή','Τη Δευτέρα','Το Σάββατο','Την Τετάρτη']]],
+    ['Ο Πέτρος είδε ένα μικρό σκυλάκι έξω από το σχολείο. Το ζώο φορούσε περιλαίμιο με τηλέφωνο. Ο Πέτρος ενημέρωσε τη δασκάλα του και εκείνη επικοινώνησε με τον ιδιοκτήτη.',[
+      ['Πού βρέθηκε το σκυλάκι;','Έξω από το σχολείο','Μέσα στο λεωφορείο','Δίπλα στο λιμάνι','Πίσω από το μουσείο'],['Τι είχε στο περιλαίμιό του;','Ένα τηλέφωνο','Μια μικρή κορδέλα','Ένα χρυσό κλειδί','Μια κόκκινη σφυρίχτρα'],['Τι έκανε πρώτα ο Πέτρος;','Ενημέρωσε τη δασκάλα','Πήγε στο σπίτι του','Αγόρασε λίγη τροφή','Έτρεξε στην πλατεία'],['Ποιος κάλεσε τον ιδιοκτήτη;','Η δασκάλα','Ο διευθυντής','Ο συμμαθητής','Ο φύλακας']]],
+    ['Η Μαρία φύτεψε έναν σπόρο φασολιού σε μια γλάστρα. Την έβαλε κοντά στο παράθυρο και πότιζε το χώμα όταν στέγνωνε. Ύστερα από λίγες ημέρες εμφανίστηκε ένα μικρό πράσινο βλαστάρι.',[
+      ['Τι φύτεψε η Μαρία;','Έναν σπόρο φασολιού','Έναν σπόρο καρπουζιού','Έναν σπόρο λεμονιού','Έναν σπόρο πεπονιού'],['Πού έβαλε τη γλάστρα;','Κοντά στο παράθυρο','Κάτω από το κρεβάτι','Μέσα στην ντουλάπα','Πίσω από την πόρτα'],['Πότε πότιζε το χώμα;','Όταν στέγνωνε','Όταν χιόνιζε','Όταν σκοτείνιαζε','Όταν φυσούσε'],['Τι εμφανίστηκε στο τέλος;','Ένα πράσινο βλαστάρι','Ένα κόκκινο λουλούδι','Ένα ώριμο φασόλι','Ένα μεγάλο δέντρο']]],
+    ['Στην εκδρομή, η τάξη επισκέφθηκε ένα μουσείο φυσικής ιστορίας. Ο ξεναγός έδειξε έναν τεράστιο σκελετό δεινοσαύρου. Τα παιδιά κράτησαν σημειώσεις και στο τέλος έφτιαξαν μια ζωγραφιά.',[
+      ['Πού πήγε η τάξη;','Σε μουσείο φυσικής ιστορίας','Σε μουσείο σύγχρονης τέχνης','Σε μεγάλο αθλητικό στάδιο','Σε ένα θέατρο σκιών'],['Τι έδειξε ο ξεναγός;','Σκελετό δεινοσαύρου','Μοντέλο αεροπλάνου','Στολή αστροναύτη','Παλιό μουσικό όργανο'],['Τι έκαναν όσο άκουγαν;','Κρατούσαν σημειώσεις','Έπαιζαν με μπάλες','Έτρωγαν το γεύμα τους','Τραγουδούσαν δυνατά'],['Τι έφτιαξαν στο τέλος;','Μια ζωγραφιά','Ένα κέικ','Μια αφίσα αγώνα','Ένα χαρταετό']]],
+    ['Ο Γιάννης ετοιμαζόταν για ποδηλασία στο πάρκο. Φόρεσε κράνος, έλεγξε τα φρένα και γέμισε το παγούρι του. Όταν άρχισε να βρέχει, γύρισε στο σπίτι για να είναι ασφαλής.',[
+      ['Πού ήθελε να κάνει ποδήλατο;','Στο πάρκο','Στην παραλία','Στο γήπεδο','Στο σχολείο'],['Τι φόρεσε για προστασία;','Κράνος','Κασκόλ','Γάντια κουζίνας','Γυαλιά ηλίου'],['Τι έλεγξε πριν ξεκινήσει;','Τα φρένα','Το κουδούνι της πόρτας','Το φως του δωματίου','Το ρολόι της κουζίνας'],['Γιατί γύρισε σπίτι;','Επειδή άρχισε η βροχή','Επειδή έχασε το παγούρι','Επειδή τελείωσε το μάθημα','Επειδή έσπασε η τσάντα']]],
+    ['Η Ελένη βρήκε στην αυλή ένα πορτοφόλι. Δεν το άνοιξε ούτε το κράτησε. Το παρέδωσε στον διευθυντή, ο οποίος βρήκε τον κάτοχό του και του το επέστρεψε.',[
+      ['Τι βρήκε η Ελένη;','Ένα πορτοφόλι','Ένα κινητό','Ένα ρολόι','Ένα τετράδιο'],['Πού το βρήκε;','Στην αυλή','Στη βιβλιοθήκη','Στο λεωφορείο','Στο κυλικείο'],['Σε ποιον το παρέδωσε;','Στον διευθυντή','Στον οδηγό','Στον φούρναρη','Στον προπονητή'],['Ποια ήταν η σωστή της επιλογή;','Να παραδώσει το εύρημα','Να κρύψει το εύρημα','Να πετάξει το εύρημα','Να πουλήσει το εύρημα']]],
+    ['Η Σοφία ήθελε να φτιάξει μια κάρτα γενεθλίων. Δίπλωσε ένα χαρτόνι, ζωγράφισε ένα ουράνιο τόξο και έγραψε μια ευχή. Την έδωσε στην αδελφή της το απόγευμα.',[
+      ['Τι ήθελε να κατασκευάσει;','Μια κάρτα γενεθλίων','Ένα χάρτινο καραβάκι','Μια σχολική αφίσα','Ένα κουτί δώρου'],['Τι ζωγράφισε;','Ένα ουράνιο τόξο','Ένα μεγάλο καράβι','Ένα ψηλό βουνό','Ένα πράσινο δέντρο'],['Τι έγραψε μέσα;','Μια ευχή','Μια συνταγή','Μια άσκηση','Μια διεύθυνση'],['Σε ποιον έδωσε την κάρτα;','Στην αδελφή της','Στον δάσκαλό της','Στη γειτόνισσά της','Στον παππού της']]],
+    ['Ο Μάριος παρατήρησε ότι η βρύση στην αυλή έσταζε. Ενημέρωσε αμέσως τον υπεύθυνο του σχολείου. Εκείνος έκλεισε τη βρύση και κάλεσε τεχνικό για να τη διορθώσει.',[
+      ['Τι πρόβλημα παρατήρησε;','Μια βρύση που έσταζε','Ένα παράθυρο που έτριζε','Μια πόρτα που έκλεινε','Ένα θρανίο που κουνιόταν'],['Πού βρισκόταν η βρύση;','Στην αυλή','Στο υπόγειο','Στην κουζίνα','Στο γυμναστήριο'],['Ποιον ενημέρωσε;','Τον υπεύθυνο του σχολείου','Τον οδηγό του λεωφορείου','Τον υπάλληλο του μουσείου','Τον προπονητή της ομάδας'],['Γιατί κάλεσαν τεχνικό;','Για να διορθώσει τη βρύση','Για να βάψει τον τοίχο','Για να φτιάξει το θρανίο','Για να αλλάξει τα φώτα']]],
+    ['Η Δανάη ετοίμασε την τσάντα της από το βράδυ. Έβαλε τα βιβλία σύμφωνα με το πρόγραμμα και ξύρισε τα μολύβια της. Το πρωί έφυγε ήρεμη, επειδή είχε οργανωθεί έγκαιρα.',[
+      ['Πότε ετοίμασε την τσάντα;','Από το προηγούμενο βράδυ','Στο πρώτο διάλειμμα','Μετά το μεσημεριανό','Μέσα στο λεωφορείο'],['Πώς διάλεξε τα βιβλία;','Σύμφωνα με το πρόγραμμα','Σύμφωνα με το χρώμα','Σύμφωνα με το μέγεθος','Σύμφωνα με το εξώφυλλο'],['Τι έκανε στα μολύβια;','Τα ξύρισε','Τα πέταξε','Τα έβαψε','Τα έκρυψε'],['Γιατί ήταν ήρεμη το πρωί;','Είχε ετοιμαστεί έγκαιρα','Δεν είχε καθόλου μάθημα','Είχε χάσει την τσάντα','Είχε ξεχάσει τα βιβλία']]],
+    ['Ο Αλέξης έλαβε μήνυμα από άγνωστο που ζητούσε τον κωδικό του παιχνιδιού του. Δεν απάντησε και δεν πάτησε τον σύνδεσμο. Έδειξε το μήνυμα στη μητέρα του και το ανέφεραν μαζί.',[
+      ['Ποιος έστειλε το μήνυμα;','Ένας άγνωστος','Ένας συμμαθητής','Ο προπονητής','Ο δάσκαλος'],['Τι ζητούσε το μήνυμα;','Τον κωδικό του παιχνιδιού','Τον τίτλο του βιβλίου','Το χρώμα της τσάντας','Το όνομα του σκύλου'],['Τι έκανε με τον σύνδεσμο;','Δεν τον πάτησε','Τον έστειλε παντού','Τον άνοιξε αμέσως','Τον αποθήκευσε'],['Σε ποιον έδειξε το μήνυμα;','Στη μητέρα του','Στον ταχυδρόμο','Στον οδηγό','Στον πωλητή']]],
+    ['Στο σχολικό εργαστήριο, τα παιδιά έφτιαξαν μια γέφυρα από χαρτόνι. Πρώτα σχεδίασαν τη βάση και μετά κόλλησαν τα στηρίγματα. Δοκίμασαν τη γέφυρα με μικρά αντικείμενα και βελτίωσαν το σχέδιο.',[
+      ['Τι κατασκεύασαν τα παιδιά;','Μια γέφυρα από χαρτόνι','Ένα καράβι από ξύλο','Ένα αεροπλάνο από μέταλλο','Έναν πύργο από άμμο'],['Τι έκαναν πρώτα;','Σχεδίασαν τη βάση','Κόλλησαν τα στηρίγματα','Δοκίμασαν τη γέφυρα','Ζωγράφισαν το κουτί'],['Τι κόλλησαν στη συνέχεια;','Τα στηρίγματα','Τα παράθυρα','Τα φτερά','Τα κουμπιά'],['Γιατί έκαναν δοκιμές;','Για να βελτιώσουν το σχέδιο','Για να αλλάξουν το μάθημα','Για να γεμίσουν την αίθουσα','Για να κρύψουν την κατασκευή']]],
+    ['Ο Νίκος είδε σύννεφα πριν από την εκδρομή. Άκουσε την πρόγνωση του καιρού και έβαλε αδιάβροχο στην τσάντα. Όταν έβρεξε στο βουνό, μπόρεσε να μείνει στεγνός.',[
+      ['Τι παρατήρησε πριν φύγει;','Σύννεφα στον ουρανό','Χιόνι στο πεζοδρόμιο','Ομίχλη στην τάξη','Αστέρια το μεσημέρι'],['Τι άκουσε για να προετοιμαστεί;','Την πρόγνωση του καιρού','Μια μουσική εκπομπή','Έναν ποδοσφαιρικό αγώνα','Μια ιστορία στο ραδιόφωνο'],['Τι έβαλε στην τσάντα;','Ένα αδιάβροχο','Ένα μαγιό','Μια ομπρέλα θαλάσσης','Ένα ζευγάρι πέδιλα'],['Πώς τον βοήθησε η προετοιμασία;','Έμεινε στεγνός στη βροχή','Έφτασε πιο γρήγορα','Βρήκε ένα χαμένο κλειδί','Κέρδισε έναν αγώνα']]]
+  ];
+  const index=L-10,entry=texts[Math.floor(index/4)%texts.length],question=entry[1][index%4];
+  const correct=question[1],choices=ngShuffle(question.slice(1),L*61+19);
+  exChoices(area,'📚 Διάβασε & Απάντησε',`<div style="text-align:left;background:#fff7ed;padding:16px;border-radius:16px;line-height:1.65;margin-bottom:12px">${entry[0]}</div><b>${question[0]}</b>`,choices,choices.indexOf(correct),L*61);
 }
 
 function loadLogic(area){
